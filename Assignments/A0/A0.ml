@@ -255,10 +255,60 @@ cnf t3;;
 dnf t3;;
 
 (* testcase 4 *)
+print_string "\n\n===========\n\ntesting case 4\n\n\n ";;
+(*  Tauotolgy*)
+let t4 = Iff(Not(Or(L("A"),L("B"))),And(Not(L("A")),Not(L("B"))));;
+size t4;;
+ht t4;;
+print_set (letters t4 SS.empty);;
+print_set (subprop_at (L("B")) t4);;
+print_set (subprop_at (Not(L("A"))) t4);;
+print_set (subprop_at (Or(L("A"),L("B"))) t4);;
 
-
+truth t4 rho1;;
+truth (nnf t4) rho1;;
+truth (cnf t4) rho1;;
+truth (dnf t4) rho1;;
+nnf t4;;
+cnf t4;;
+dnf t4;;
 
 (* testcase 5 *)
+print_string "\n\n===========\n\ntesting case 5\n\n\n ";;
+(* Contradiction *)
+let t5 = Iff(Or(L("A"),L("B")),Not(Or(L("A"),L("B"))));;
+size t5;;
+ht t5;;
+print_set (letters t5 SS.empty);;
+print_set (subprop_at (L("B")) t5);;
+(* print_set (subprop_at (Not(L("A"))) t5);; *)
+(* print_set (subprop_at (Or(L("A"),L("B"))) t5);; *)
+
+truth t5 rho1;;
+truth (nnf t5) rho1;;
+truth (cnf t5) rho1;;
+truth (dnf t5) rho1;;
+nnf t5;;
+cnf t5;;
+dnf t5;;
 
 (* testcase 6 *)
+print_string "\n\n===========\n\ntesting case 6\n\n\n ";;
+let t6 =	And(And (Or (Or (L "A", L "B"), Not (L "B")),Or (Not (L "A"), Or (L "A", L "B"))),
+			And (Or (Or (L "A", L "B"), Not (L "B")), Or (Not (L "A"), Or (L "A", L "B"))));;
+
+size t6;;
+ht t6;;
+print_set (letters t6 SS.empty);;
+print_set (subprop_at (L("B")) t6);;
+(* print_set (subprop_at (Not(L("A"))) t6);; *)
+(* print_set (subprop_at (Or(L("A"),L("B"))) t6);; *)
+
+truth t6 rho1;;
+truth (nnf t6) rho1;;
+truth (cnf t6) rho1;;
+truth (dnf t6) rho1;;
+nnf t6;;
+cnf t6;;
+dnf t6;;
 
