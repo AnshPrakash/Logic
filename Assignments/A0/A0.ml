@@ -1,8 +1,12 @@
 module SS = Set.Make(String);;
 
+
+
 type prop = T | F | L of string | Not of prop | And of prop*prop 
 			| Or  of prop*prop | Impl of prop*prop | Iff of prop*prop
 ;;
+
+exception Not_Found of string;;
 
 (* Printing sets *)
 let print_set s =  SS.iter print_endline s;;
@@ -157,7 +161,11 @@ let rec subprop p1 p2 s str =	if (isSame p1 p2) then SS.add str s
 								| L(st)       -> s
 
 ;;
-let subprop_at p1 p2 = subprop p1 p2 SS.empty "";;
+let subprop_at p1 p2 = 
+	let set = subprop p1 p2 SS.empty "" in
+	if set=SS.empty then raise (Not_Found("No Match"))
+	else set
+;;
 
 (* TestCases *)
 
@@ -181,4 +189,76 @@ truth a rho;;
 truth b rho;;
 truth c rho;;
 truth (Or(And(L("A"),T),Impl(L("B"),L("A")))) rho;;
+
+
+
+let rho1 = Hashtbl.create 1234;; (*HashTable*)
+Hashtbl.add rho1 "A" false;;
+Hashtbl.add rho1 "B" true;;
+Hashtbl.add rho1 "C" true;;
+
+
+print_string "\n\n===========\n\ntesting case 1\n\n\n ";;
+(* test case 1 *)
+(* contingencies *)
+let t1 = Not(Not(Iff(Not(Impl(L("A"),Or(L("A"),L("B")))),And(L("C"),Not(And(Or(L("A"),Or(L("C"),Not(L("A")))),L("B")))))));;
+size t1;;
+ht t1;;
+print_set (letters t1 SS.empty);;
+print_set (subprop_at (L("C")) t1);;
+print_set (subprop_at (Or(L("A"),L("B"))) t1);;
+
+truth t1 rho1;;
+truth (nnf t1) rho1;;
+truth (cnf t1) rho1;;
+truth (dnf t1) rho1;;
+nnf t1;;
+cnf t1;;
+dnf t1;;
+
+(* testcase 2 *)
+print_string "\n\n===========\n\ntesting case 2\n\n\n ";;
+(* tautology *)
+let t2 = Impl(And( Impl(L("A"),L("B")), Impl(L("B"),L("C"))),Impl(L("A"),L("B")));;
+size t2;;
+ht t2;;
+print_set (letters t2 SS.empty);;
+print_set (subprop_at (L("C")) t2);;
+(* print_set (subprop_at (Or(L("A"),L("B"))) t2);; *)
+
+truth t2 rho1;;
+truth (nnf t2) rho1;;
+truth (cnf t2) rho1;;
+truth (dnf t2) rho1;;
+nnf t2;;
+cnf t2;;
+dnf t2;;
+
+
+(* testcase 3 *)
+print_string "\n\n===========\n\ntesting case 3\n\n\n ";;
+(* Contradiction *)
+let t3 =  And(Or(L("A"),L("B")),And(Not(L("A")),Not(L("B"))));;
+size t3;;
+ht t3;;
+print_set (letters t3 SS.empty);;
+print_set (subprop_at (L("B")) t3);;
+(* print_set (subprop_at (L("C")) t3);; *)
+(* print_set (subprop_at (Or(L("A"),L("B"))) t3);; *)
+
+truth t3 rho1;;
+truth (nnf t3) rho1;;
+truth (cnf t3) rho1;;
+truth (dnf t3) rho1;;
+nnf t3;;
+cnf t3;;
+dnf t3;;
+
+(* testcase 4 *)
+
+
+
+(* testcase 5 *)
+
+(* testcase 6 *)
 
