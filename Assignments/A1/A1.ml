@@ -9,23 +9,7 @@ type prop = T | F | L of string | Not of prop | And of prop*prop
 exception Not_Found of string;;
 exception Contrad;;
 
-let rec truth p rho = 
-	match p with
-	| T -> true
-	| F -> false
-	| Not(q) -> not (truth q rho)
-	| And(q1,q2) -> (truth q1 rho) && (truth q2 rho)
-	| Or(q1,q2) -> (truth q1 rho) || (truth q2 rho)
-	| Impl(q1,q2) -> (not (truth q1 rho)) || (truth q2 rho)
-	| Iff(q1,q2) -> (truth (Impl(q1,q2)) rho) && ((truth (Impl(q2,q1)) rho))
-	| L(st) -> Hashtbl.find rho st
-;;
 
-
-
-(* type status =  {value:int}
-;;
- *)
 (*  -1:contradiction ,   0 :unexamined,  1: examined,   2:selected *)
 type node = Node of prop*bool*int
 ;;
@@ -42,14 +26,6 @@ type proof = P of tree | E of example
 let print_hash hash = Hashtbl.iter (fun x y -> Printf.printf "%s -> %b\n" x y) hash
 ;;
 
-(* hellper for contrad_path *)
-(* let update n rho = 	match n with
-					| Node(p,b,s) -> match p with
-									| L(st) ->(	try (if (Hashtbl.find rho st) != b then (s.value <- -1;raise Contrad) else rho)
-												with Not_found -> let rho1 = Hashtbl.copy rho in (Hashtbl.add rho1 st b;rho1) )
-									| _ ->  rho
-;;
- *)
 
 let update t assign = 	
 	let helper p b s rho = (	if (s != -1) then 
@@ -66,14 +42,6 @@ let update t assign =
 	| Beta(Node(p,b,s),t1,t2) -> (helper p b s assign))
 ;;
 
-
-(* 
-let setbase n = match n with
-					| Node(p,b,s)-> if (p = T && b = false) then (s.value <- -1;true)
-									else if p = F && b = true then (s.value <- -1 ; true)
-									else if p = T || p = F then (false)
-									else false
-;; *)
 
 let change_status t new_s = 
 	match t with
@@ -92,16 +60,7 @@ let rec contrad_path t rho =
 	)
 	with Contrad -> change_status t (-1)
 ;;
-							
-(* 
-let rec select_node t = match t with
-						| Leaf(Node(p,b,s)) -> if (s.value = 0) then (s.value <- 2; true) else false
-						| Alpha(Node(p,b,s),t1) ->  if (s.value = 0) then (s.value <- 2; true) else select_node t1
-						| Beta(Node(p,b,s),t1,t2) ->	if (s.value = 0) then (s.value <- 2; true) 
-														else if (select_node t1) then true 
-														else (select_node t2)
-;; *)
-
+	
 let rec select_node t = match t with
 						| Leaf(Node(p,b,s)) -> (if (s = 0) then (true,(change_status t (2))) else (false,t))
 						| Alpha(Node(p,b,s),t1) ->  (	if (s = 0) then ((true,(change_status t (2)))) 
@@ -225,19 +184,19 @@ let mycmp t1 t2 = let (s1,b1) = t1 in
 	    String.compare (String.lowercase_ascii s1) (String.lowercase_ascii s2)
 ;;
 
-(* let find_assignments t = let t0 = full_develop t in
+let find_assignments t = let t0 = full_develop t in
 	let rec fa tab rho = match tab with
-					| Leaf(Node(p,b,s)) ->	if (s.value = -1) then []
+					| Leaf(Node(p,b,s)) ->	if (s = -1) then []
 											else (	match p with
 														| L(st) -> [(st,b)::rho]
 														| _ -> [rho]
 													)
-					| Alpha(Node(p,b,s),t1) ->	if (s.value = -1) then [] 
+					| Alpha(Node(p,b,s),t1) ->	if (s = -1) then [] 
 												else (	match p with
 														| L(st) -> fa t1 ((st,b)::rho)
 														| _ -> fa t1 rho
 													)
-					| Beta(Node(p,b,s),t1,t2)->	if (s.value = -1) then [] 
+					| Beta(Node(p,b,s),t1,t2)->	if (s = -1) then [] 
 												else(	match p with
 														| L(st) -> (fa t1 ((st,b)::rho))@(fa t2 ((st,b)::rho))
 														| _ -> (fa t1 rho)@(fa t2 rho)
@@ -260,7 +219,7 @@ let rec check_contradiction p = let l = find_assignments (Leaf(Node(p,true,0))) 
 			| hd::tl-> E(LL(hd))
 ;;
 
- *)
+
 
 (* Select Node *)
 select_node (Leaf(Node(Or(L("p"),L("q")),true,0)));;
@@ -297,18 +256,37 @@ full_develop (Leaf(Node(t3,true,0)));;
 full_develop (Leaf(Node(t1,false,0)));;
 full_develop (Leaf(Node(t2,false,0)));;
 full_develop (Leaf(Node(t3,false,0)));;
-(* 
+
 check_tautology t1 ;;
 check_tautology t2 ;;
 check_tautology t3 ;;
 
- *)
+
 let t6 = T;;
 let t7 = Or(L("p"),Not(L("p")));;
-(* check_tautology t6 ;;
+check_tautology t6 ;;
 check_tautology t7;;
 
 check_contradiction (Not(T));;
 check_contradiction (And(t7,Not(t7)));;
- *)
+
 full_develop (Leaf(Node((And(t7,Not(t7))),true,0)));;
+
+let k =Alpha (Node (And (Or (L "p", Not (L "p")), Not (Or (L "p", Not (L "p")))), true,1),
+		 Beta (Node (Or (L "p", Not (L "p")), true, 0),
+  Alpha (Node (L "p", true,-1),
+   Leaf (Node (Not (Or (L "p", Not (L "p"))), true, 0))),
+						  Alpha (Node (L "p", false, 0),
+						   Alpha (Node (Or (L "p", Not (L "p")), false,-1),
+						    Alpha (Node (L "p", false, 0),
+						     Leaf (Node (L "p", true, 0)))))))
+;;
+
+select_node k;;
+
+find_assignments (Leaf(Node(k,false,0)));;
+
+let t8 = Impl(L "p", L "p");;
+let t9 = Impl(L "p", Impl(L "q", L "p"));;
+check_tautology t8;;
+check_tautology t9;;
