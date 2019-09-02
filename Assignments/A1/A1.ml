@@ -38,10 +38,8 @@ type example = LL of ((string*bool) list)
 type proof = P of tree | E of example
 ;;
 
-
-let rho = Hashtbl.create 1234;; (*HashTable*)
-Hashtbl.add rho "A" false;;
-Hashtbl.add rho "B" true;;
+let print_hash hash = Hashtbl.iter (fun x y -> Printf.printf "%s -> %b\n" x y) hash
+;;
 
 (* hellper for contrad_path *)
 let update n rho = 	match n with
@@ -71,18 +69,25 @@ let setbase n = match n with
 
 ;;
  *)
-(* let rec got_path t = ;; *)
 
 let rec contrad_path t rho = match t with 
-							| Leaf(n) ->(	try (let _ = update n rho in (if (setbase n)then t else t))
-											with Contrad -> t
-										)
-							| Alpha(n,t1) ->(	try (let rho1 = update n rho in (if (setbase n) then t else Alpha(n,contrad_path t1 rho1)) )
-												with Contrad -> t 
-											) 
-							| Beta(n,t1,t2)	->	(	try (let rho1 = update n rho in (if (setbase n) then t else Beta(n,contrad_path t1 rho1,contrad_path t2 rho1)) )
-													with Contrad -> t
-												) 
+							| Leaf(Node(p,b,s)) ->	(	if(s.value != -1) then
+															(try (let _ = update (Node(p,b,s)) rho in (if (setbase (Node(p,b,s)))then t else t))
+															with Contrad -> t)
+														else t
+													)
+							| Alpha(Node(p,b,s),t1) -> ( 	if(s.value != -1) then
+																(	try (let rho1 = update (Node(p,b,s)) rho in (if (setbase (Node(p,b,s))) then t else Alpha((Node(p,b,s)),contrad_path t1 rho1)) )
+																	with Contrad -> t 
+																) 
+															else t
+														)
+							| Beta(Node(p,b,s),t1,t2)	->	(	if(s.value != -1) then
+																	(	try (let rho1 = update (Node(p,b,s)) rho in (if (setbase (Node(p,b,s))) then t else let rho1c = Hashtbl.copy rho1 in Beta(Node(p,b,s),contrad_path t1 rho1,contrad_path t2 rho1c)) )
+																		with Contrad -> t
+																	)
+																else t
+															) 
 
 ;;
 
@@ -96,20 +101,25 @@ let rec select_node t = match t with
 ;; *)
 
 let rec select_node t = match t with
-						| Leaf(Node(p,b,s)) -> if (s.value = 0) then (s.value <- 2; (true,t)) else (false,t)
-						| Alpha(Node(p,b,s),t1) ->  if (s.value = 0) then (s.value <- 2; (true,t)) 
-													else if (s.value != -1 ) then 
-															let (tb,tt1) = (select_node t1) in
-															(tb,Alpha(Node(p,b,s),tt1))
-													else (false,t)		
-						| Beta(Node(p,b,s),t1,t2) ->	if (s.value = 0) then (s.value <- 2; (true,t) )
+						| Leaf(Node(p,b,s)) -> (if (s.value = 0) then (s.value <- 2; (true,t)) else (false,t))
+						| Alpha(Node(p,b,s),t1) ->  (	if (s.value = 0) then (s.value <- 2; (true,t)) 
+														else if (s.value != -1 ) then 
+																(let (tb,tt1) = (select_node t1) in
+																	(tb,Alpha(Node(p,b,s),tt1))
+																)
+														else (false,t)		
+													)
+						| Beta(Node(p,b,s),t1,t2) -> (	if (s.value = 0) then (s.value <- 2; (true,t) )
 														else if (s.value != -1) then
-																let (tb1,tt1) = select_node t1 in
-																if tb1 then (true,Beta(Node(p,b,s),tt1,t2))
-																else let (tb2,tt2) = select_node t2 in
-																		(tb2,Beta(Node(p,b,s),t1,tt2))
+																(let (tb1,tt1) = select_node t1 in
+																	(
+																	if tb1 then (true,Beta(Node(p,b,s),tt1,t2))
+																	else (let (tb2,tt2) = select_node t2 in
+																			(tb2,Beta(Node(p,b,s),t1,tt2)))
+																	)
+																)
 														else (false,t)
-														
+													)	
 ;;
 
 
@@ -117,65 +127,65 @@ let expand t = match t with
 	| Leaf(Node(p,b,s)) -> 	( s.value <- 1;
 								match (p,b) with
 								(* Alpha nodes *)
-								| (And(q1,q2),true)-> Alpha(Node(p,b,s),Alpha(Node(q1,true,{value=0}),Leaf(Node(q2,true,{value=0}))))
-								| (Or(q1,q2),false) -> Alpha(Node(p,b,s),Alpha(Node(q1,false,{value=0}),Leaf(Node(q2,false,{value=0}))))
-								| (Impl(q1,q2),false) -> Alpha(Node(p,b,s),Alpha(Node(q1,true,{value=0}),Leaf(Node(q2,false,{value=0}))))
+								| (And(q1,q2),true)-> Alpha(Node(p,b,s),Alpha(Node(q1,true,{value = 0}),Leaf(Node(q2,true,{value = 0}))))
+								| (Or(q1,q2),false) -> Alpha(Node(p,b,s),Alpha(Node(q1,false,{value = 0}),Leaf(Node(q2,false,{value = 0}))))
+								| (Impl(q1,q2),false) -> Alpha(Node(p,b,s),Alpha(Node(q1,true,{value = 0}),Leaf(Node(q2,false,{value = 0}))))
 								(* Beta nodes *)
-								| (And(q1,q2),false)-> Beta(Node(p,b,s),Leaf(Node(q1,false,{value = 0})),Leaf(Node(q2,false,{value=0})))
-								| (Or(q1,q2),true) -> Beta(Node(p,b,s),Leaf(Node(q1,true,{value = 0})),Leaf(Node(q2,true,{value=0})))
-								| (Impl(q1,q2),true) -> Beta(Node(p,b,s),Leaf(Node(q1,false,{value = 0})),Leaf(Node(q2,true,{value=0})))
+								| (And(q1,q2),false)-> Beta(Node(p,b,s),Leaf(Node(q1,false,{value = 0})),Leaf(Node(q2,false,{value = 0})))
+								| (Or(q1,q2),true) -> Beta(Node(p,b,s),Leaf(Node(q1,true,{value = 0})),Leaf(Node(q2,true,{value = 0})))
+								| (Impl(q1,q2),true) -> Beta(Node(p,b,s),Leaf(Node(q1,false,{value = 0})),Leaf(Node(q2,true,{value = 0})))
 								(* Iff node *)
-								| (Iff(q1,q2),true) -> Beta(Node(p,b,s),Alpha(Node(q1,true,{value=0}),Leaf(Node(q2,true,{value=0})))
-															, Alpha(Node(q1,false,{value=0}),Leaf(Node(q2,false,{value=0})))
+								| (Iff(q1,q2),true) -> Beta(Node(p,b,s),Alpha(Node(q1,true,{value = 0}),Leaf(Node(q2,true,{value = 0})))
+															, Alpha(Node(q1,false,{value = 0}),Leaf(Node(q2,false,{value = 0})))
 															)
-								| (Iff(q1,q2),false) -> Beta(Node(p,b,s),Alpha(Node(q1,true,{value=0}),Leaf(Node(q2,false,{value=0})))
-															, Alpha(Node(q1,false,{value=0}),Leaf(Node(q2,true,{value=0})))
+								| (Iff(q1,q2),false) -> Beta(Node(p,b,s),Alpha(Node(q1,true,{value = 0}),Leaf(Node(q2,false,{value = 0})))
+															, Alpha(Node(q1,false,{value = 0}),Leaf(Node(q2,true,{value = 0})))
 															)
 								(* Leaf Nodes *)
 								| (L(st),_) -> t
-								| (Not(q),_) -> Leaf(Node(q, not b,{value =0}))
+								| (Not(q),_) -> Leaf(Node(q, not b,{value = 0}))
 								| (T,true) -> t
 								| (F,false) -> t
 							)
 	| Alpha(Node(p,b,s),t1) -> ( s.value <- 1;
 								match (p,b) with
 								(* Alpha nodes *)
-								| (And(q1,q2),true)-> Alpha(Node(p,b,s),Alpha(Node(q1,true,{value=0}),Alpha(Node(q2,true,{value =0}),t1)))
-								| (Or(q1,q2),false) -> Alpha(Node(p,b,s),Alpha(Node(q1,false,{value=0}),Alpha(Node(q2,false,{value =0}),t1)))
-								| (Impl(q1,q2),false) -> Alpha(Node(p,b,s),Alpha(Node(q1,true,{value=0}),Alpha(Node(q2,false,{value =0}),t1)))
+								| (And(q1,q2),true)-> Alpha(Node(p,b,s),Alpha(Node(q1,true,{value = 0}),Alpha(Node(q2,true,{value = 0}),t1)))
+								| (Or(q1,q2),false) -> Alpha(Node(p,b,s),Alpha(Node(q1,false,{value = 0}),Alpha(Node(q2,false,{value = 0}),t1)))
+								| (Impl(q1,q2),false) -> Alpha(Node(p,b,s),Alpha(Node(q1,true,{value = 0}),Alpha(Node(q2,false,{value = 0}),t1)))
 								(* Beta nodes *)
-								| (And(q1,q2),false)-> Beta(Node(p,b,s),Alpha(Node(q1,false,{value=0}),t1),Alpha(Node(q2,false,{value=0}),t1))
-								| (Or(q1,q2),true) -> Beta(Node(p,b,s),Alpha(Node(q1,true,{value=0}),t1),Alpha(Node(q2,true,{value=0}),t1))
-								| (Impl(q1,q2),true) -> Beta(Node(p,b,s),Alpha(Node(q1,false,{value=0}),t1),Alpha(Node(q2,true,{value=0}),t1))
+								| (And(q1,q2),false)-> Beta(Node(p,b,s),Alpha(Node(q1,false,{value = 0}),t1),Alpha(Node(q2,false,{value = 0}),t1))
+								| (Or(q1,q2),true) -> Beta(Node(p,b,s),Alpha(Node(q1,true,{value = 0}),t1),Alpha(Node(q2,true,{value = 0}),t1))
+								| (Impl(q1,q2),true) -> Beta(Node(p,b,s),Alpha(Node(q1,false,{value = 0}),t1),Alpha(Node(q2,true,{value = 0 }),t1))
 								(* Iff node *)
-								| (Iff(q1,q2),true) -> Beta(Node(p,b,s),Alpha(Node(q1,true,{value=0}),Alpha(Node(q2,true,{value=0}),t1)),Alpha(Node(q1,false,{value=0}),Alpha(Node(q2,false,{value=0}),t1)))
-								| (Iff(q1,q2),false) -> Beta(Node(p,b,s),Alpha(Node(q1,true,{value=0}),Alpha(Node(q2,false,{value=0}),t1)),Alpha(Node(q1,false,{value=0}),Alpha(Node(q2,true,{value=0}),t1)))
+								| (Iff(q1,q2),true) -> Beta(Node(p,b,s),Alpha(Node(q1,true,{value = 0}),Alpha(Node(q2,true,{value = 0}),t1)),Alpha(Node(q1,false,{value = 0}),Alpha(Node(q2,false,{value = 0}),t1)))
+								| (Iff(q1,q2),false) -> Beta(Node(p,b,s),Alpha(Node(q1,true,{value = 0}),Alpha(Node(q2,false,{value = 0}),t1)),Alpha(Node(q1,false,{value = 0}),Alpha(Node(q2,true,{value = 0}),t1)))
 								(* Leaf Nodes *)
 								| (L(st),_) -> t
-								| (Not(q),_) -> Alpha(Node(q,not b,{value=0}),t1)
+								| (Not(q),_) -> Alpha(Node(q,not b,{ value = 0}),t1)
 								| (T,true) -> t
 								| (F,false) -> t
 							)
 	| Beta(Node(p,b,s),t1,t2) -> ( s.value <- 1;
 								match (p,b) with
 								(* Alpha nodes *)
-								| (And(q1,q2),true)-> Alpha(Node(p,b,s),Alpha(Node(q1,true,{value=0}),Beta(Node(q2,true,{value=0}),t1,t2)))
-								| (Or(q1,q2),false) -> Alpha(Node(p,b,s),Alpha(Node(q1,false,{value=0}),Beta(Node(q2,false,{value=0}),t1,t2)))
-								| (Impl(q1,q2),false) -> Alpha(Node(p,b,s),Alpha(Node(q1,true,{value=0}),Beta(Node(q2,false,{value=0}),t1,t2)))
+								| (And(q1,q2),true)-> Alpha(Node(p,b,s),Alpha(Node(q1,true,{value = 0}),Beta(Node(q2,true,{value = 0}),t1,t2)))
+								| (Or(q1,q2),false) -> Alpha(Node(p,b,s),Alpha(Node(q1,false,{value = 0}),Beta(Node(q2,false,{value = 0}),t1,t2)))
+								| (Impl(q1,q2),false) -> Alpha(Node(p,b,s),Alpha(Node(q1,true,{value = 0}),Beta(Node(q2,false,{value = 0}),t1,t2)))
 								(* Beta nodes *)
-								| (And(q1,q2),false)-> Beta(Node(p,b,s),Beta(Node(q1,false,{value=0}),t1,t2),Beta(Node(q2,false,{value=0}),t1,t2))
-								| (Or(q1,q2),true) -> Beta(Node(p,b,s),Beta(Node(q1,true,{value=0}),t1,t2),Beta(Node(q2,true,{value=0}),t1,t2))
-								| (Impl(q1,q2),true) -> Beta(Node(p,b,s),Beta(Node(q1,false,{value=0}),t1,t2),Beta(Node(q2,true,{value=0}),t1,t2))
+								| (And(q1,q2),false)-> Beta(Node(p,b,s),Beta(Node(q1,false,{value = 0}),t1,t2),Beta(Node(q2,false,{value = 0}),t1,t2))
+								| (Or(q1,q2),true) -> Beta(Node(p,b,s),Beta(Node(q1,true,{value = 0}),t1,t2),Beta(Node(q2,true,{value = 0}),t1,t2))
+								| (Impl(q1,q2),true) -> Beta(Node(p,b,s),Beta(Node(q1,false,{value = 0}),t1,t2),Beta(Node(q2,true,{value = 0}),t1,t2))
 								(* Iff node *)
 								| (Iff(q1,q2),true) -> Beta(Node(p,b,s),
-															Alpha(Node(q1,true,{value=0}),Beta(Node(q2,true,{value=0}),t1,t2)),
-															Alpha(Node(q1,false,{value=0}),Beta(Node(q2,false,{value=0}),t1,t2)))
+															Alpha(Node(q1,true,{value = 0}),Beta(Node(q2,true,{value = 0}),t1,t2)),
+															Alpha(Node(q1,false,{value = 0}),Beta(Node(q2,false,{value = 0}),t1,t2)))
 								| (Iff(q1,q2),false) -> Beta(Node(p,b,s),
-															Alpha(Node(q1,true,{value=0}),Beta(Node(q2,false,{value=0}),t1,t2)),
-															Alpha(Node(q1,false,{value=0}),Beta(Node(q2,true,{value=0}),t1,t2)))
+															Alpha(Node(q1,true,{value = 0}),Beta(Node(q2,false,{value = 0}),t1,t2)),
+															Alpha(Node(q1,false,{value = 0}),Beta(Node(q2,true,{value = 0}),t1,t2)))
 								(* Leaf Nodes *)
 								| (L(st),_) -> t
-								| (Not(q),_) -> Beta(Node(q,not b,{value =0}),t1,t2)
+								| (Not(q),_) -> Beta(Node(q,not b,{value = 0}),t1,t2)
 								| (T,true) -> t
 								| (F,false) -> t
 							)
@@ -194,7 +204,7 @@ let rec full_develop t =
 	let (t0) = contrad_path t (Hashtbl.create 10) in 
 	let (b1,t1) = select_node t0 in
 	let (t2) = step_develop t1 in 
-	if b1 then full_develop t2 else t2	
+	if b1 then full_develop t2 else t1	
 ;;
 
 
@@ -239,9 +249,10 @@ let rec check_tautology p = let l = find_assignments (Leaf(Node(p,false,{value=0
 			| hd::tl-> E(LL(hd))
 ;;
 
+
 let rec check_contradiction p = let l = find_assignments (Leaf(Node(p,true,{value=0}))) in 
 			match l with
-			| [] -> P(full_develop (Leaf(Node(p,false,{value=0}))))
+			| [] -> P(full_develop (Leaf(Node(p,true,{value=0}))))
 			| hd::tl-> E(LL(hd))
 ;;
 
@@ -293,4 +304,7 @@ let t7 = Or(L("p"),Not(L("p")));;
 check_tautology t6 ;;
 check_tautology t7;;
 
+check_contradiction (Not(T));;
 check_contradiction (And(t7,Not(t7)));;
+
+full_develop (Leaf(Node((And(t7,Not(t7))),true,{value = 0})));;
