@@ -1,4 +1,4 @@
-(* Hilbert Style Proof *)
+Hilbert Style Proof *)
 
 type prop = T | F | L of string | Not of prop | And of prop*prop 
 			| Or  of prop*prop | Impl of prop*prop | Iff of prop*prop
@@ -128,7 +128,7 @@ let setify gamma =
 	let rec stif proplist setified = 
 		(	match proplist with
 			| [] -> setified
-			| hd::tl ->  if (is_element hd (Assum(tl))) then (stif tl (hd::setified)) else (stif tl setified)
+			| hd::tl ->  if (is_element hd (Assum(tl))) then (stif tl (setified)) else (stif tl (hd::setified))
 		) in
 		(stif gamma ([]))
 ;;
@@ -191,17 +191,99 @@ let rec graft proof prooflist =
 
 ;;
 
-(* let rec dedthm proof =;; *)
+let rec remove_prop gamma_props p = 
+	match gamma_props with
+	| [] -> []
+	| hd::tl ->  if (isSame hd p) then (remove_prop tl p) else hd::(remove_prop tl p)
+;;
+
+
+let rec modifiy_pf_gamma pf gamma_pri = (
+	match pf with
+	| Base(Entails(assum,p)) -> Base(Entails(gamma_pri,p))
+	| MP(hp1,hp2,Entails(assum,p)) -> MP(modifiy_pf_gamma hp1 gamma_pri,modifiy_pf_gamma hp2 gamma_pri,Entails(gamma_pri,p))
+	) 
+;;
+
+
+let prop_of_pf pf = match pf with
+	| Base(Entails(assum,p)) -> p
+	| MP(hp1,hp2,Entails(assum,p)) -> p
+;;
+
+
+
+let rec dedthm p proof =
+	let (Assum(old_gamma_props)) = getassum proof in(
+		let mod_gamma = Assum(remove_prop old_gamma_props p) in( 
+			let partial_proof = modifiy_pf_gamma proof mod_gamma in(
+
+				let rec induct pf=(
+					match pf with
+					| Base(Entails(assum,q)) -> (
+						if (isSame q p) then
+							MP(
+								MP( Base(Entails(assum,Impl(Impl(p,Impl(Impl(p,p),p)),Impl(p,Impl(Impl(p,p),Impl(p,p)))))),
+									Base(Entails(assum,Impl(p,Impl(Impl(p,p),p)))),
+									Entails(assum,Impl(p,Impl(Impl(p,p),Impl(p,p))))),
+								Base(Entails(assum,(Impl(p,Impl(p,p))))),
+								Entails(assum,Impl(p,p))
+							)
+							else(
+								MP(Base(Entails(assum,Impl(q,Impl(p,q)))),Base(Entails(assum,q)),Entails(assum,Impl(p,q)))
+							)
+						)
+					| MP(hp1,hp2,Entails(assum,q)) -> (let r = (prop_of_pf hp2) in(
+								if (isSame q p) then (
+									MP(	
+										MP(	Base(Entails(assum,Impl(Impl(p,Impl(r,p)), Impl(Impl(p,r),Impl(p,p)) ))),	
+											Base(Entails(assum,Impl(p,Impl(r,p)))),
+											Entails(assum,Impl(Impl(p,r),Impl(p,p)) )
+										)
+										,
+										induct hp2,
+										Entails(assum,Impl(p,p))
+									)
+
+								) else(
+									MP(	
+										MP(	Base(Entails(assum,Impl(Impl(p,Impl(r,q)), Impl(Impl(p,r),Impl(p,q)) ))),	
+											induct hp1 ,
+											Entails(assum,Impl(Impl(p,r),Impl(p,q)) )
+										)
+										,
+										induct hp2			,
+										Entails(assum,Impl(p,q))
+									)
+								)
+							)
+						) 	
+
+					) in induct partial_proof
+
+				) 
+				
+			)
+		)
+;;
+
+(* Mpdes Ponens is always of the form
+
+	Gamma |- p ->q , Gamma |- p
+	__________________________
+	     Gamma |- q
+
+ *)
 
 
 (* let p = Node( Node(Impl(p,q))|Base(), Node(q), MP(Ifthen(Assum([]),p,q,r))) *)
-
+(* 
 
 let p = Base((Entails(Assum([]),Impl(L("p"),L("p")))));;
 
 let p = MP(Ifthen(Assum([]),Impl(Impl(L("p"),Impl(L("p"),L("p"))),Impl(L("p"),L("p")) ), Impl(L("p"),Impl(L("p"),L("p")))), 
 							Entails(Assum([]),Impl(Impl(L("p"),Impl(L("p"),L("p"))),Impl(L("p"),L("p")) )),
-									Entails(Assum([]),Impl(L("p"),L("p"))))
-
+									Entails(Assum([]),Impl(L("p"),L("p")))) *)
+(* 
 Entails(Assum([]),Impl(Impl(L("p"),Impl(L("p"),L("p"))),Impl(L("p"),L("p")) ))
   Entails(Assum([]),Impl(L("p"),L("p")))
