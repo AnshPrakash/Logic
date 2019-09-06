@@ -118,16 +118,86 @@ let rec pad proof props =
 	| MP(hp1,hp2,Entails(Assum(l),p)) -> MP(pad hp1 props,pad hp2 props,Entails(Assum(l@props),p))
 ;;
 
+let rec getbases hptree  = 
+	match hptree with
+		| Base(Entails(Assum(l),p)) -> if (check_assumption (Assum(l)) p)  then p::[] else []
+		| MP(hp1,hp2,Entails(Assum(l),p)) -> (getbases hp1)@(getbases hp2)
+;;
 
-(* let rec prune prooft = ;; *)
+let setify gamma = 
+	let rec stif proplist setified = 
+		(	match proplist with
+			| [] -> setified
+			| hd::tl ->  if (is_element hd (Assum(tl))) then (stif tl (hd::setified)) else (stif tl setified)
+		) in
+		(stif gamma ([]))
+;;
 
-(* let rec graft proof l = ;; *)
+let rec prune prooft = 
+	let subprops = setify (getbases prooft) in 
+	let rec replace hproof newprops =
+	(	match hproof with
+		| Base(Entails(Assum(l),p)) -> Base(Entails(Assum(newprops),p))
+		| MP(hp1,hp2,Entails(Assum(l),p)) -> MP(replace hp1 newprops,replace hp2 newprops,Entails(Assum(newprops),p))
+	) in (replace prooft subprops)
+;;
+
+
+let getassum hptree = 
+	match hptree with
+	| Base(Entails(assum,p)) -> assum
+	| MP(hp1,hp2,Entails(assum,p)) -> assum
+;;
+
+
+let getpos lis q=
+	let rec position l i =
+		(	match l with
+			| [] -> raise (Not_Found("not in list"))
+			| hd::tl -> if (isSame q hd) then (i) else position tl (i+1)
+		) in (position lis 0)
+;;
+
+let rec get_ith_element lis i = 
+	match lis with
+	| [] -> raise Not_Valid
+	| hd::tl -> if i = 0 then hd else get_ith_element tl (i-1)
+;;
+
+let rec graft proof prooflist = 
+	let newgamma = 
+	(	match prooflist with
+		| [] -> Assum([])
+		| hd::tl -> getassum hd
+	) in (
+	let rec subs htree =
+	(
+		match htree with
+		| Base(Entails(Assum(l),p)) -> 
+		(	try (
+				let pos = getpos l p  in (get_ith_element prooflist pos )
+			)
+			with Not_Found(e) -> htree
+		)
+		| MP(hp1,hp2,e) -> MP(subs hp1 ,subs hp2 ,e)
+	) in let partial_pf = subs proof in (
+		let rec replace_gamma pf gamma_pri = (
+			match pf with
+			| Base(Entails(assum,p)) -> Base(Entails(gamma_pri,p))
+			| MP(hp1,hp2,Entails(assum,p)) -> MP(replace_gamma hp1 gamma_pri,replace_gamma hp2 gamma_pri,Entails(gamma_pri,p))
+			) in ( replace_gamma partial_pf newgamma)
+		)
+	)
+
+;;
 
 (* let rec dedthm proof =;; *)
 
 
 (* let p = Node( Node(Impl(p,q))|Base(), Node(q), MP(Ifthen(Assum([]),p,q,r))) *)
 
+
+let p = Base((Entails(Assum([]),Impl(L("p"),L("p")))));;
 
 let p = MP(Ifthen(Assum([]),Impl(Impl(L("p"),Impl(L("p"),L("p"))),Impl(L("p"),L("p")) ), Impl(L("p"),Impl(L("p"),L("p")))), 
 							Entails(Assum([]),Impl(Impl(L("p"),Impl(L("p"),L("p"))),Impl(L("p"),L("p")) )),
