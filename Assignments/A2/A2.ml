@@ -1,4 +1,4 @@
-Hilbert Style Proof *)
+(* Hilbert Style Proof *)
 
 type prop = T | F | L of string | Not of prop | And of prop*prop 
 			| Or  of prop*prop | Impl of prop*prop | Iff of prop*prop
@@ -103,7 +103,7 @@ let rec valid_hprooftree proof =
 									(isSame p1_1 p2) && (isSame p1_2 p) && (valid_hprooftree hp1) && (valid_hprooftree hp2)
 								)
 							)
-							with Not_Valid -> false
+							with Not_Valid ->  false
 						)
 						else false
 					)
@@ -215,6 +215,7 @@ let prop_of_pf pf = match pf with
 
 let rec dedthm p proof =
 	let (Assum(old_gamma_props)) = getassum proof in(
+		if not (is_element p (Assum(old_gamma_props))) then raise Not_Valid else(
 		let mod_gamma = Assum(remove_prop old_gamma_props p) in( 
 			let partial_proof = modifiy_pf_gamma proof mod_gamma in(
 
@@ -223,9 +224,10 @@ let rec dedthm p proof =
 					| Base(Entails(assum,q)) -> (
 						if (isSame q p) then
 							MP(
-								MP( Base(Entails(assum,Impl(Impl(p,Impl(Impl(p,p),p)),Impl(p,Impl(Impl(p,p),Impl(p,p)))))),
+								MP( Base(Entails(assum,Impl(Impl(p,Impl(Impl(p,p),p)),Impl( Impl(p,Impl(p,p)) ,Impl(p,p) ) ))),
 									Base(Entails(assum,Impl(p,Impl(Impl(p,p),p)))),
-									Entails(assum,Impl(p,Impl(Impl(p,p),Impl(p,p))))),
+									Entails(assum,Impl( Impl(p,Impl(p,p)) ,Impl(p,p) )) ),
+									(* Entails(assum,Impl(p,Impl(Impl(p,p),Impl(p,p))))), *)
 								Base(Entails(assum,(Impl(p,Impl(p,p))))),
 								Entails(assum,Impl(p,p))
 							)
@@ -265,6 +267,7 @@ let rec dedthm p proof =
 				
 			)
 		)
+	)
 ;;
 
 (* Mpdes Ponens is always of the form
@@ -276,14 +279,41 @@ let rec dedthm p proof =
  *)
 
 
-(* let p = Node( Node(Impl(p,q))|Base(), Node(q), MP(Ifthen(Assum([]),p,q,r))) *)
-(* 
 
-let p = Base((Entails(Assum([]),Impl(L("p"),L("p")))));;
+(* Test Cases *)
+(* p->p *)
+let p = L("p");;
+let q = L("q");;
+let p_im_p = MP(MP(
+		Base(Entails(Assum([]),Impl(Impl(p,Impl(Impl(p,p),p)),
+			Impl(Impl(p,Impl(p,p)),Impl(p,p))
+	)))
 
-let p = MP(Ifthen(Assum([]),Impl(Impl(L("p"),Impl(L("p"),L("p"))),Impl(L("p"),L("p")) ), Impl(L("p"),Impl(L("p"),L("p")))), 
-							Entails(Assum([]),Impl(Impl(L("p"),Impl(L("p"),L("p"))),Impl(L("p"),L("p")) )),
-									Entails(Assum([]),Impl(L("p"),L("p")))) *)
-(* 
-Entails(Assum([]),Impl(Impl(L("p"),Impl(L("p"),L("p"))),Impl(L("p"),L("p")) ))
-  Entails(Assum([]),Impl(L("p"),L("p")))
+	, Base(Entails(Assum([]),Impl(p,Impl(Impl(p,p),p)))) ,Entails(Assum([]), Impl(Impl(p,Impl(p,p)),Impl(p,p)) ))   ,Base(Entails(Assum([]),Impl(p,Impl(p,p)))),Entails(Assum[],Impl(p,p)))
+;;
+
+(* Testing Vald Prove *)
+valid_hprooftree p_im_p;;
+(* Testing Pad *)
+let pad_p_im_p = pad p_im_p ([T;Impl(p,p)]);;
+(* Testing prune *)
+prune pad_p_im_p;;
+
+(dedthm (Impl(p,p)) pad_p_im_p );;
+
+(dedthm (L("c")) pad_p_im_p);; (*return exception as gamma do not have L("c") in it*)
+
+
+let a = L("A");;
+let b = L("B");;
+let c = L("C");;
+let gamma = Assum([a;Impl(a,b);Impl(b,c)]);;
+
+let pf1 = MP(Base(Entails(gamma,Impl(b,c))),MP(Base(Entails(gamma,Impl(a,b))),Base(Entails(gamma,a)),Entails(gamma,b)) ,Entails(gamma,c));;
+valid_hprooftree pf1;;
+prune pf1 ;;
+pad pf1 ([Impl(b,a)]);;
+prune (pad pf1 ([Impl(b,a)])) = pf1;;
+dedthm a pf1 ;;
+valid_hprooftree (dedthm a pf1) ;;
+
