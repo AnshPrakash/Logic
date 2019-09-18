@@ -232,30 +232,45 @@ let rec valid_ndprooftree proof =
 
 
 
-(* let rec graft proof prooflist = 
-    let newgamma = 
-    (   match prooflist with
-        | [] -> Assum([])
-        | hd::tl -> getassum hd
-    ) in (
-    let rec subs htree =
-    (
-        match htree with
-        | Base(Entails(Assum(l),p)) -> 
-        (   try (
-                let pos = getpos l p  in (get_ith_element prooflist pos )
-            )
-            with Not_Found(e) -> htree
-        )
-        | MP(hp1,hp2,e) -> MP(subs hp1 ,subs hp2 ,e)
-    ) in let partial_pf = subs proof in (
-        let rec replace_gamma pf gamma_pri = (
-            match pf with
-            | Base(Entails(assum,p)) -> Base(Entails(gamma_pri,p))
-            | MP(hp1,hp2,Entails(assum,p)) -> MP(replace_gamma hp1 gamma_pri,replace_gamma hp2 gamma_pri,Entails(gamma_pri,p))
-            ) in ( replace_gamma partial_pf newgamma)
-        )
-    )
 
+let rec findproof prooflist prop =
+    match prooflist with
+    | [] -> raise (Not_Found("no proof for this prop in the given proof list"))
+    | hd::tl -> 
+        (match hd with
+        |Hyp(Entails(Assum(l),p))                 -> if isSame p prop then hd else findproof tl prop
+        |T_I(Entails(Assum(l),p))                 -> if isSame p prop then hd else findproof tl prop
+        |Imp_I(dpf,Entails(Assum(l),p))           -> if isSame p prop then hd else findproof tl prop
+        |Imp_E(dpf1,dpf2,Entails(Assum(l),p))     -> if isSame p prop then hd else findproof tl prop
+        |Not_I(dpf,Entails(Assum(l),p))           -> if isSame p prop then hd else findproof tl prop
+        |Not_Classic(dpf,Entails(Assum(l),p))     -> if isSame p prop then hd else findproof tl prop
+        |And_I(dpf1,dpf2,Entails(Assum(l),p))     -> if isSame p prop then hd else findproof tl prop
+        |And_El(dpf,Entails(Assum(l),p))          -> if isSame p prop then hd else findproof tl prop
+        |And_Er(dpf,Entails(Assum(l),p))          -> if isSame p prop then hd else findproof tl prop
+        |Or_Il(dpf,Entails(Assum(l),p))           -> if isSame p prop then hd else findproof tl prop
+        |Or_Ir(dpf,Entails(Assum(l),p))           -> if isSame p prop then hd else findproof tl prop
+        |Or_E(dpf1,dpf2,dpf3,Entails(Assum(l),p)) -> if isSame p prop then hd else findproof tl prop
+        )
 ;;
-*)
+
+
+let rec graft ndproof prooflist = 
+    match ndproof with
+    |Hyp(Entails(Assum(l),p))                 -> 
+        (   try(
+               let newproof = findproof prooflist p in newproof
+            )
+            with Not_Found(err) -> ndproof
+        )
+    |T_I(Entails(Assum(l),p))                 -> ndproof
+    |Imp_I(dpf,Entails(Assum(l),p))           -> Imp_I(graft dpf prooflist,Entails(Assum(l),p))
+    |Imp_E(dpf1,dpf2,Entails(Assum(l),p))     -> Imp_E(graft dpf1 prooflist,graft dpf2 prooflist,Entails(Assum(l),p))
+    |Not_I(dpf,Entails(Assum(l),p))           -> Not_I(graft dpf prooflist,Entails(Assum(l),p))
+    |Not_Classic(dpf,Entails(Assum(l),p))     -> Not_Classic(graft dpf prooflist,Entails(Assum(l),p))
+    |And_I(dpf1,dpf2,Entails(Assum(l),p))     -> And_I(graft dpf1 prooflist,graft dpf2 prooflist,Entails(Assum(l),p))
+    |And_El(dpf,Entails(Assum(l),p))          -> And_El(graft dpf prooflist,Entails(Assum(l),p))
+    |And_Er(dpf,Entails(Assum(l),p))          -> And_Er(graft dpf prooflist,Entails(Assum(l),p))
+    |Or_Il(dpf,Entails(Assum(l),p))           -> Or_Il(graft dpf prooflist,Entails(Assum(l),p))
+    |Or_Ir(dpf,Entails(Assum(l),p))           -> Or_Ir(graft dpf prooflist,Entails(Assum(l),p))
+    |Or_E(dpf1,dpf2,dpf3,Entails(Assum(l),p)) -> Or_E(graft dpf1 prooflist,graft dpf2 prooflist,graft dpf3 prooflist,Entails(Assum(l),p))
+;;
