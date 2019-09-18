@@ -254,7 +254,41 @@ let rec findproof prooflist prop =
 ;;
 
 
-let rec graft ndproof prooflist = 
+(* check if g1 is subset of g2 *)
+let rec assumption_subset g1 g2 = 
+    match g1 with
+    | Assum([]) -> true
+    | Assum(hd::tl) -> (is_element hd g2) && assumption_subset (Assum(tl)) g2
+;;
+
+
+let isEqualAssum g1 g2 = (assumption_subset g1 g2) && (assumption_subset g2 g1);;
+
+
+(* correct gamma for the extended proof in grafting *)
+let rec subst ndproof vgammal  =
+    match ndproof with
+    |Hyp(Entails(Assum(l),p))                 -> Hyp(Entails(Assum(vgammal),p))
+    |T_I(Entails(Assum(l),p))                 -> T_I(Entails(Assum(vgammal),p))
+    |Imp_I(dpf,Entails(Assum(l),Impl(p,q)))   -> Imp_I(subst dpf (p::vgammal),Entails(Assum(vgammal),Impl(p,q)))
+    |Imp_E(dpf1,dpf2,Entails(Assum(l),p))     -> Imp_E(subst dpf1 vgammal,subst dpf2 vgammal,Entails(Assum(vgammal),p))
+    |Not_I(dpf,Entails(Assum(l),p))           -> Not_I(subst dpf vgammal,Entails(Assum(vgammal),p))
+    |Not_Classic(dpf,Entails(Assum(l),p))     -> Not_Classic(subst dpf ((Not(p))::vgammal),Entails(Assum(vgammal),p))
+    |And_I(dpf1,dpf2,Entails(Assum(l),p))     -> And_I(subst dpf1 vgammal,subst dpf2 vgammal,Entails(Assum(vgammal),p))
+    |And_El(dpf,Entails(Assum(l),p))          -> And_El(subst dpf vgammal,Entails(Assum(vgammal),p))
+    |And_Er(dpf,Entails(Assum(l),p))          -> And_Er(subst dpf vgammal,Entails(Assum(vgammal),p))
+    |Or_Il(dpf,Entails(Assum(l),p))           -> Or_Il(subst dpf vgammal,Entails(Assum(vgammal),p))
+    |Or_Ir(dpf,Entails(Assum(l),p))           -> Or_Ir(subst dpf vgammal,Entails(Assum(vgammal),p))
+    |Or_E(dpf1,dpf2,dpf3,Entails(Assum(l),r)) -> 
+        (
+            let Entails(_,Or(p,q)) = get_entails dpf1 in
+            Or_E(subst dpf1 vgammal,subst dpf2 (p::vgammal),subst dpf3 (q::vgammal),Entails(Assum(vgammal),r))
+        )
+;;
+
+
+(* extend the proof on leafs *)
+let rec substpf ndproof prooflist = 
     match ndproof with
     |Hyp(Entails(Assum(l),p))                 -> 
         (   try(
@@ -262,15 +296,28 @@ let rec graft ndproof prooflist =
             )
             with Not_Found(err) -> ndproof
         )
-    |T_I(Entails(Assum(l),p))                 -> ndproof
-    |Imp_I(dpf,Entails(Assum(l),p))           -> Imp_I(graft dpf prooflist,Entails(Assum(l),p))
-    |Imp_E(dpf1,dpf2,Entails(Assum(l),p))     -> Imp_E(graft dpf1 prooflist,graft dpf2 prooflist,Entails(Assum(l),p))
-    |Not_I(dpf,Entails(Assum(l),p))           -> Not_I(graft dpf prooflist,Entails(Assum(l),p))
-    |Not_Classic(dpf,Entails(Assum(l),p))     -> Not_Classic(graft dpf prooflist,Entails(Assum(l),p))
-    |And_I(dpf1,dpf2,Entails(Assum(l),p))     -> And_I(graft dpf1 prooflist,graft dpf2 prooflist,Entails(Assum(l),p))
-    |And_El(dpf,Entails(Assum(l),p))          -> And_El(graft dpf prooflist,Entails(Assum(l),p))
-    |And_Er(dpf,Entails(Assum(l),p))          -> And_Er(graft dpf prooflist,Entails(Assum(l),p))
-    |Or_Il(dpf,Entails(Assum(l),p))           -> Or_Il(graft dpf prooflist,Entails(Assum(l),p))
-    |Or_Ir(dpf,Entails(Assum(l),p))           -> Or_Ir(graft dpf prooflist,Entails(Assum(l),p))
-    |Or_E(dpf1,dpf2,dpf3,Entails(Assum(l),p)) -> Or_E(graft dpf1 prooflist,graft dpf2 prooflist,graft dpf3 prooflist,Entails(Assum(l),p))
+    |T_I(Entails(Assum(l),p))                 -> T_I(Entails(Assum(l),p))
+    |Imp_I(dpf,Entails(Assum(l),p))           -> Imp_I(substpf dpf prooflist,Entails(Assum(l),p))
+    |Imp_E(dpf1,dpf2,Entails(Assum(l),p))     -> Imp_E(substpf dpf1 prooflist,substpf dpf2 prooflist,Entails(Assum(l),p))
+    |Not_I(dpf,Entails(Assum(l),p))           -> Not_I(substpf dpf prooflist,Entails(Assum(l),p))
+    |Not_Classic(dpf,Entails(Assum(l),p))     -> Not_Classic(substpf dpf prooflist,Entails(Assum(l),p))
+    |And_I(dpf1,dpf2,Entails(Assum(l),p))     -> And_I(substpf dpf1 prooflist,substpf dpf2 prooflist,Entails(Assum(l),p))
+    |And_El(dpf,Entails(Assum(l),p))          -> And_El(substpf dpf prooflist,Entails(Assum(l),p))
+    |And_Er(dpf,Entails(Assum(l),p))          -> And_Er(substpf dpf prooflist,Entails(Assum(l),p))
+    |Or_Il(dpf,Entails(Assum(l),p))           -> Or_Il(substpf dpf prooflist,Entails(Assum(l),p))
+    |Or_Ir(dpf,Entails(Assum(l),p))           -> Or_Ir(substpf dpf prooflist,Entails(Assum(l),p))
+    |Or_E(dpf1,dpf2,dpf3,Entails(Assum(l),p)) -> Or_E(substpf dpf1 prooflist,substpf dpf2 prooflist,substpf dpf3 prooflist,Entails(Assum(l),p))
+;;
+
+let getgamma lt = 
+    match lt with
+    | [] -> []
+    | hd::tl -> (let Entails(Assum(ll),_) = (get_entails hd) in ll)
+;;
+
+
+let graft ndproof prooflist =
+    let extendpf = substpf ndproof prooflist in
+    let vgamma = getgamma prooflist in
+    subst extendpf vgamma
 ;;
