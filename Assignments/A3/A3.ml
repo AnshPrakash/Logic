@@ -73,7 +73,7 @@ let rec getbases dpftree  =
     |Hyp(Entails(Assum(l),p)) -> p::[]
     |T_I(Entails(Assum(l),p)) -> []
     |Imp_I(dpf,e)             -> getbases dpf
-    |Imp_E(dpf1,dpf2,e)      -> (getbases dpf1)@(getbases dpf2)
+    |Imp_E(dpf1,dpf2,e)       -> (getbases dpf1)@(getbases dpf2)
     |Not_I(dpf,e)             -> getbases dpf
     |Not_Classic(dpf,e)       -> getbases dpf
     |And_I(dpf1,dpf2,e)       -> (getbases dpf1)@(getbases dpf2)
@@ -107,17 +107,17 @@ let rec prune prooft =
     let subprops = setify (getbases prooft) in 
     let rec replace dproof newprops =
     (   match dproof with
-        |Hyp(Entails(Assum(l),p)) ->  Hyp(Entails(Assum(newprops),p))
-        |T_I(Entails(Assum(l),p)) ->  T_I(Entails(Assum(newprops),p))
-        |Imp_I(dpf,Entails(Assum(l),p)) -> Imp_I(replace dpf newprops, Entails(Assum(newprops),p))
-        |Imp_E(dpf1,dpf2,Entails(Assum(l),p)) -> Imp_E(replace dpf1 newprops,replace dpf2 newprops,Entails(Assum(newprops),p))
-        |Not_I(dpf,Entails(Assum(l),p)) -> Not_I(replace dpf newprops,Entails(Assum(newprops),p))
-        |Not_Classic(dpf,Entails(Assum(l),p)) -> Not_Classic(replace dpf newprops,Entails(Assum(newprops),p))
-        |And_I(dpf1,dpf2,Entails(Assum(l),p)) -> And_I(replace dpf1 newprops, replace dpf2 newprops, Entails(Assum(newprops),p))
-        |And_El(dpf,Entails(Assum(l),p)) -> And_El(replace dpf newprops, Entails(Assum(newprops),p))
-        |And_Er(dpf,Entails(Assum(l),p)) -> And_Er(replace dpf newprops, Entails(Assum(newprops),p))
-        |Or_Il(dpf,Entails(Assum(l),p)) -> Or_Il(replace dpf newprops, Entails(Assum(newprops),p))
-        |Or_Ir(dpf,Entails(Assum(l),p)) -> Or_Ir(replace dpf newprops, Entails(Assum(newprops),p))
+        |Hyp(Entails(Assum(l),p))                 -> Hyp(Entails(Assum(newprops),p))
+        |T_I(Entails(Assum(l),p))                 -> T_I(Entails(Assum(newprops),p))
+        |Imp_I(dpf,Entails(Assum(l),p))           -> Imp_I(replace dpf newprops, Entails(Assum(newprops),p))
+        |Imp_E(dpf1,dpf2,Entails(Assum(l),p))     -> Imp_E(replace dpf1 newprops,replace dpf2 newprops,Entails(Assum(newprops),p))
+        |Not_I(dpf,Entails(Assum(l),p))           -> Not_I(replace dpf newprops,Entails(Assum(newprops),p))
+        |Not_Classic(dpf,Entails(Assum(l),p))     -> Not_Classic(replace dpf newprops,Entails(Assum(newprops),p))
+        |And_I(dpf1,dpf2,Entails(Assum(l),p))     -> And_I(replace dpf1 newprops, replace dpf2 newprops, Entails(Assum(newprops),p))
+        |And_El(dpf,Entails(Assum(l),p))          -> And_El(replace dpf newprops, Entails(Assum(newprops),p))
+        |And_Er(dpf,Entails(Assum(l),p))          -> And_Er(replace dpf newprops, Entails(Assum(newprops),p))
+        |Or_Il(dpf,Entails(Assum(l),p))           -> Or_Il(replace dpf newprops, Entails(Assum(newprops),p))
+        |Or_Ir(dpf,Entails(Assum(l),p))           -> Or_Ir(replace dpf newprops, Entails(Assum(newprops),p))
         |Or_E(dpf1,dpf2,dpf3,Entails(Assum(l),p)) -> Or_E(replace dpf1 newprops, replace dpf2 newprops, replace dpf3 newprops, Entails(Assum(newprops),p))
     ) in (replace prooft subprops)
 ;;
@@ -125,29 +125,111 @@ let rec prune prooft =
 
 
 
+let get_entails ndtree =
+    match ndtree with
+    |Hyp(e)                 -> e
+    |T_I(e)                 -> e
+    |Imp_I(dpf,e)           -> e
+    |Imp_E(dpf1,dpf2,e)     -> e
+    |Not_I(dpf,e)           -> e
+    |Not_Classic(dpf,e)     -> e
+    |And_I(dpf1,dpf2,e)     -> e
+    |And_El(dpf,e)          -> e
+    |And_Er(dpf,e)          -> e
+    |Or_Il(dpf,e)           -> e
+    |Or_Ir(dpf,e)           -> e
+    |Or_E(dpf1,dpf2,dpf3,e) -> e
+;;
 
-(*  
+
 let rec valid_ndprooftree proof = 
     match proof with
-    | Base(Entails(Assum(l),p)) -> (check_axiom p) || check_assumption (Assum(l)) p
-    | MP(hp1,hp2,Entails(Assum(l),p)) -> (
-            let e1,e2 = (get_entails hp1),(get_entails hp2) in (
-                match e1,e2 with
-                | (Entails(assu1,p1),Entails(assu2,p2))-> (
-                        if  (isEqualAssum assu1 assu2) && (isEqualAssum assu1 (Assum(l))) then (
-                            try (
-                                    let (p1_1,p1_2) = split_impl p1 in (
-                                    (isSame p1_1 p2) && (isSame p1_2 p) && (valid_hprooftree hp1) && (valid_hprooftree hp2)
-                                )
-                            )
-                            with Not_Valid ->  false
-                        )
-                        else false
-                    )
+    |Hyp(Entails(Assum(l),p))                 -> check_assumption (Assum(l)) p
+    |T_I(Entails(Assum(l),p))                 -> if p = T then true else false
+    |Imp_I(dpf,Entails(Assum(l),Impl(p,q)))   -> 
+        (   let Entails(assum,r) = get_entails dpf in 
+            if (is_element p assum) && not (is_element p (Assum(l))) && (isSame r q) then (valid_ndprooftree dpf)
+            else false
+        )
+    |Imp_E(dpf1,dpf2,Entails(Assum(l),q))     -> 
+        (   try(
+                let Entails(_,Impl(p1,q1)) = get_entails dpf1 in (
+                    let Entails(_,p2) = get_entails dpf2 in 
+                    (if (isSame p1 p2) && (isSame q1 q) then ((valid_ndprooftree dpf1) && (valid_ndprooftree dpf2)) else false)
+                )
+            )
+            with _ -> false
+        )
+    |Not_I(dpf,Entails(Assum(l),p))           -> 
+        (
+            let Entails(assum,q) = get_entails dpf in (
+                if q = F then valid_ndprooftree dpf else false
             )
         )
+    |Not_Classic(dpf,Entails(Assum(l),p))     -> 
+        (
+            let Entails(assum, c)  = get_entails dpf in (
+            (if (isSame c F) && (is_element (Not(p)) assum) && not (is_element (Not(p)) (Assum(l)))  then (valid_ndprooftree dpf) else false)
+            )        
+        )
+    |And_I(dpf1,dpf2,Entails(Assum(l),And(p,q))) -> 
+        (
+            let Entails(_,p1) = get_entails dpf1 in (
+            let Entails(_,q1) = get_entails dpf2 in(
+            if (isSame p1 p) && (isSame q1 q) then (valid_ndprooftree dpf1) && (valid_ndprooftree dpf2) else false))
+        )
+
+    |And_El(dpf,Entails(Assum(l),p))          -> 
+        (   try(
+                let Entails(_,And(p1,q1)) = get_entails dpf in ( 
+                if (isSame p1 p) then (valid_ndprooftree dpf) else false
+                )
+            )
+            with _ -> false
+        )
+
+    |And_Er(dpf,Entails(Assum(l),q))          ->
+        (   
+            try(
+                let Entails(_,And(p1,q1)) = get_entails dpf in ( 
+                if (isSame q1 q) then (valid_ndprooftree dpf) else false
+                )
+            )
+            with _ -> false
+        )
+    |Or_Il(dpf,Entails(Assum(l),Or(p,q)))           -> 
+        (   
+            try(
+                let Entails(_,p1) = get_entails dpf in ( 
+                if (isSame p1 p) then (valid_ndprooftree dpf) else false
+                )
+            )
+            with _ -> false
+        )
+    |Or_Ir(dpf,Entails(Assum(l),Or(p,q)))           -> 
+        (   
+            try(
+                let Entails(_,q1) = get_entails dpf in ( 
+                if (isSame q1 q) then (valid_ndprooftree dpf) else false
+                )
+            )
+            with _ -> false
+        )
+    |Or_E(dpf1,dpf2,dpf3,Entails(Assum(l),r)) -> 
+        (   
+            try(
+                let Entails(assum1,Or(p,q)) = get_entails dpf1 in (
+                let Entails(assum2,r1) = get_entails dpf2 in(
+                let Entails(assum3,r2) = get_entails dpf3 in(
+                    if (is_element p assum2) && (is_element q assum3) && (isSame r1 r2) && (isSame r1 r) then 
+                    ( (valid_ndprooftree dpf1) && (valid_ndprooftree dpf2) && (valid_ndprooftree dpf3) )
+                    else  false
+                ))))
+            with _ -> false
+        )
+    | _ -> false
 ;;
- *)
+
 
 
 (* let rec graft proof prooflist = 
@@ -176,4 +258,4 @@ let rec valid_ndprooftree proof =
     )
 
 ;;
- *)
+*)
