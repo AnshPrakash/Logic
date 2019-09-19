@@ -103,25 +103,6 @@ let setify gamma =
 
 
 
-let rec prune prooft = 
-    let subprops = setify (getbases prooft) in 
-    let rec replace dproof newprops =
-    (   match dproof with
-        |Hyp(Entails(Assum(l),p))                 -> Hyp(Entails(Assum(newprops),p))
-        |T_I(Entails(Assum(l),p))                 -> T_I(Entails(Assum(newprops),p))
-        |Imp_I(dpf,Entails(Assum(l),p))           -> Imp_I(replace dpf newprops, Entails(Assum(newprops),p))
-        |Imp_E(dpf1,dpf2,Entails(Assum(l),p))     -> Imp_E(replace dpf1 newprops,replace dpf2 newprops,Entails(Assum(newprops),p))
-        |Not_I(dpf,Entails(Assum(l),p))           -> Not_I(replace dpf newprops,Entails(Assum(newprops),p))
-        |Not_Classic(dpf,Entails(Assum(l),p))     -> Not_Classic(replace dpf newprops,Entails(Assum(newprops),p))
-        |And_I(dpf1,dpf2,Entails(Assum(l),p))     -> And_I(replace dpf1 newprops, replace dpf2 newprops, Entails(Assum(newprops),p))
-        |And_El(dpf,Entails(Assum(l),p))          -> And_El(replace dpf newprops, Entails(Assum(newprops),p))
-        |And_Er(dpf,Entails(Assum(l),p))          -> And_Er(replace dpf newprops, Entails(Assum(newprops),p))
-        |Or_Il(dpf,Entails(Assum(l),p))           -> Or_Il(replace dpf newprops, Entails(Assum(newprops),p))
-        |Or_Ir(dpf,Entails(Assum(l),p))           -> Or_Ir(replace dpf newprops, Entails(Assum(newprops),p))
-        |Or_E(dpf1,dpf2,dpf3,Entails(Assum(l),p)) -> Or_E(replace dpf1 newprops, replace dpf2 newprops, replace dpf3 newprops, Entails(Assum(newprops),p))
-    ) in (replace prooft subprops)
-;;
-
 
 
 
@@ -321,3 +302,56 @@ let graft ndproof prooflist =
     let vgamma = getgamma prooflist in
     subst extendpf vgamma
 ;;
+
+
+
+let rec rsubset cur_set base_set =
+	match cur_set with
+	| [] -> []
+	| hd::tl -> if is_element (hd) (Assum(base_set)) then hd::(rsubset tl base_set) else rsubset tl base_set
+;;
+	
+
+
+let rec prune prooft = 
+    let base_set = setify (getbases prooft) in 
+	let r_gam = getgamma ([prooft]) in
+	let subprops  = rsubset r_gam base_set in
+	subst prooft subprops
+;;
+
+
+(* Test Case *)
+
+let p = L("p");;
+let q = L("q");;
+let r = L("r");;
+let pf1 = Imp_I(
+	Imp_I(
+		Imp_I(
+			Imp_E(
+					Imp_E(Hyp(Entails(Assum([Impl(p,Impl(q,r));Impl(p,q);p]),Impl(p,Impl(q,r))))
+						,Hyp(Entails(Assum([Impl(p,Impl(q,r));Impl(p,q);p]),p))
+						,Entails(Assum([Impl(p,Impl(q,r));Impl(p,q);p]),Impl(q,r)))
+				,Imp_E(Hyp(Entails(Assum([Impl(p,Impl(q,r));Impl(p,q);p]),Impl(p,q)))
+					,Hyp(Entails(Assum([Impl(p,Impl(q,r));Impl(p,q);p]),p))
+					,Entails(Assum([Impl(p,Impl(q,r));Impl(p,q);p]),q))
+				,Entails(Assum([Impl(p,Impl(q,r));Impl(p,q);p]),r))
+			,Entails(Assum([Impl(p,Impl(q,r));Impl(p,q)]),Impl(p,r)))
+		,Entails(Assum([Impl(p,Impl(q,r))]) ,Impl(Impl(p,q),Impl(p,r)) ) )
+	,
+Entails(Assum([]),Impl(Impl(p,Impl(q,r)),Impl(Impl(p,q),Impl(p,r)))));;
+
+valid_ndprooftree pf1;;
+
+let k = L("k");;
+let assuml = [k;Impl(k,k);Impl(F,T)];;
+
+
+let pf2 = pad pf1 assuml;;
+
+valid_ndprooftree (pad pf1 assuml);;
+
+let pf3 = prune pf2;;
+valid_ndprooftree pf3;;
+
